@@ -13,7 +13,7 @@
 html,body{margin:0;height:100%;background:#000;color:#ddd;overflow:hidden;font-family:-apple-system,"PingFang SC",sans-serif;
   -webkit-user-select:none;user-select:none;touch-action:none}
 #face{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
-#cv{width:min(92vw,150vh);image-rendering:pixelated;image-rendering:crisp-edges;transition:transform .5s ease,opacity 1.2s ease}
+#cv{width:min(94vw,135vh);image-rendering:pixelated;image-rendering:crisp-edges;transition:transform .5s ease,opacity 1.2s ease}
 body.sleep #cv{opacity:.35}
 #zz{position:fixed;left:62%;top:22%;font:700 28px/1 monospace;color:var(--dim);opacity:0;transition:opacity 1s}
 body.sleep #zz{opacity:1;animation:zz 3s ease-in-out infinite}
@@ -47,7 +47,7 @@ body.listening #mic{opacity:1;animation:pulse 1s infinite}
 </style>
 </head>
 <body class="sleep">
-<div id="face"><canvas id="cv" width="40" height="18"></canvas></div>
+<div id="face"><canvas id="cv" width="48" height="32"></canvas></div>
 <div id="zz">z z</div>
 <div id="dots"><i></i><i></i><i></i></div>
 <div id="mic"></div>
@@ -65,6 +65,8 @@ body.listening #mic{opacity:1;animation:pulse 1s infinite}
   <select id="chatP"><option value="deepseek">DeepSeek（快）</option><option value="mimo">MiMo</option></select>
   <label for="voice">声音</label>
   <select id="voice"><option value="冰糖">冰糖</option><option value="茉莉">茉莉</option><option value="design">自定义设计（每次可能略有不同）</option></select>
+  <label for="look">样子</label>
+  <select id="look"><option value="body">像素小方块（像 Claude）</option><option value="eyes">只有眼睛（更省电）</option></select>
   <label for="vstyle">声音描述（给“冰糖/茉莉”当语气，给“自定义”当音色）</label>
   <input id="vstyle">
   <div class="row"><button id="close">取消</button><button id="save">保存</button></div>
@@ -83,40 +85,85 @@ if(location.hash.startsWith('#setup=')){
 }
 const DEF_STYLE='可爱软糯的小女生声音，奶甜，带点傲娇和小得意，语速稍快，轻快俏皮';
 const cfg={get mimo(){return LS('mimo')||''},get ds(){return LS('ds')||''},
-  get chat(){return LS('chat')||'deepseek'},get voice(){return LS('voice')||'冰糖'},get vstyle(){return LS('vstyle')||DEF_STYLE}};
+  get chat(){return LS('chat')||'deepseek'},get voice(){return LS('voice')||'冰糖'},get vstyle(){return LS('vstyle')||DEF_STYLE},get look(){return LS('look')||'body'}};
 const $=id=>document.getElementById(id);
 const panel=$('panel');
-$('bSet').onclick=e=>{e.stopPropagation();$('kMimo').value=cfg.mimo;$('kDs').value=cfg.ds;$('chatP').value=cfg.chat;$('voice').value=cfg.voice;$('vstyle').value=cfg.vstyle;panel.classList.add('on')};
+$('bSet').onclick=e=>{e.stopPropagation();$('kMimo').value=cfg.mimo;$('kDs').value=cfg.ds;$('chatP').value=cfg.chat;$('voice').value=cfg.voice;$('vstyle').value=cfg.vstyle;$('look').value=cfg.look;panel.classList.add('on')};
 $('close').onclick=()=>panel.classList.remove('on');
-$('save').onclick=()=>{SS('mimo',$('kMimo').value.trim());SS('ds',$('kDs').value.trim());SS('chat',$('chatP').value);SS('voice',$('voice').value);SS('vstyle',$('vstyle').value.trim()||DEF_STYLE);panel.classList.remove('on')};
+$('save').onclick=()=>{SS('mimo',$('kMimo').value.trim());SS('ds',$('kDs').value.trim());SS('chat',$('chatP').value);SS('voice',$('voice').value);SS('vstyle',$('vstyle').value.trim()||DEF_STYLE);SS('look',$('look').value);panel.classList.remove('on');draw()};
 
 // ---------- pixel face ----------
 const cv=$('cv'),cx=cv.getContext('2d');
-const COL={'#':getComputedStyle(document.documentElement).getPropertyValue('--eye').trim()||'#D97757',p:'#E8728A',b:'#6FB7E8'};
-const S={
- normal:["........","........","..####..","..####..","..####..","..####..","..####..","..####..","..####..","..####..","........","........"],
- blink:["........","........","........","........","........","........","........","..####..","........","........","........","........"],
- happy:["........","........","........","........","...##...","..####..",".##..##.",".#....#.","........","........","........","........"],
- smug:["........","........","........","........","........","........",".#....#.","..####..","........","........","........","........"],
- shy:["........","........","........","........","..####..","..####..","..####..","..####..","........","........","p.p..p.p","........"],
- squint:["........","........","........","........","........",".######.","..####..","..####..","........","........","........","........"],
- angry:["........","........","#.......",".##.....","..###...","..####..","..####..","..####..","..####..","........","........","........"],
- surprise:["........","..####..",".######.",".######.",".######.",".######.",".######.",".######.",".######.","..####..","........","........"],
- sad:["........","........","........","........","......#.","....##..","..####..","..####..","..####..","........","......b.","........"],
- sleepy:["........","........","........","........","........","........","........","........",".######.","........","........","........"],
- listen:["........","..####..","..####..","..####..","..####..","..####..","..####..","..####..","..####..","..####..","........","........"]
+const PAL={O:'#D97757',K:'#1b0f0a',p:'#F59AAA',P:'#E2667F',r:'#E8394A',y:'#FFD34D',b:'#7CC4F2',w:'#FFFFFF'};
+// eye bitmaps 8x12. '#' = eye ink. Arrays of [left,right]; single array = mirrored.
+const R=(n,str)=>Array.from({length:n},()=>str);
+const blank=()=>R(12,'........');
+const mk=rows=>{const b=blank();for(const k in rows)b[k]=rows[k];return b};
+const E={
+ normal:mk({2:'...##...',3:'...##...',4:'...##...',5:'...##...',6:'...##...',7:'...##...',8:'...##...',9:'...##...'}),
+ blink:mk({8:'..####..'}),
+ listen:mk({1:'...##...',2:'...##...',3:'...##...',4:'...##...',5:'...##...',6:'...##...',7:'...##...',8:'...##...',9:'...##...',10:'...##...'}),
+ happy:mk({4:'...##...',5:'..####..',6:'.##..##.',7:'.#....#.'}),
+ smug:mk({6:'.#....#.',7:'..####..'}),
+ shy:mk({4:'...##...',5:'...##...',6:'...##...',7:'...##...',8:'...##...',11:'.pp.pp..'}),
+ squint:mk({5:'.######.',6:'....##..',7:'....##..'}),
+ angry:mk({2:'#.......',3:'.##.....',4:'...##...',5:'...##...',6:'...##...',7:'...##...',8:'...##...',9:'...##...'}),
+ surprise:mk({1:'...##...',2:'..####..',3:'..####..',4:'..####..',5:'..####..',6:'..####..',7:'..####..',8:'..####..',9:'..####..',10:'...##...'}),
+ sad:mk({2:'.....##.',3:'...##...',5:'...##...',6:'...##...',7:'...##...',8:'...##...',9:'...##...',11:'...b....'}),
+ sleepy:mk({8:'.######.'}),
+ love:mk({2:'.rr..rr.',3:'rrrrrrrr',4:'rrrrrrrr',5:'.rrrrrr.',6:'..rrrr..',7:'...rr...'}),
+ star:mk({1:'...yy...',2:'...yy...',3:'yyyyyyyy',4:'.yyyyyy.',5:'..yyyy..',6:'.yy..yy.',7:'yy....yy'}),
+ dizzy:mk({2:'##....##',3:'.##..##.',4:'..####..',5:'...##...',6:'..####..',7:'.##..##.',8:'##....##'}),
+ wink:[mk({2:'...##...',3:'...##...',4:'...##...',5:'...##...',6:'...##...',7:'...##...',8:'...##...',9:'...##...'}),mk({4:'....##..',5:'..##....',6:'....##..'})],
+ confused:[mk({2:'...##...',3:'...##...',4:'...##...',5:'...##...',6:'...##...',7:'...##...',8:'...##...',9:'...##...'}),mk({5:'...##...',6:'...##...',7:'...##...',8:'...##...'})],
+ speechless:mk({6:'.######.'}),
+ cry:mk({5:'..####..',6:'.#....#.'}),
+ giggle:mk({4:'...##...',5:'..####..',6:'.##..##.',7:'.#....#.'})
 };
-const MAP={普通:'normal',开心:'happy',得意:'smug',害羞:'shy',嫌弃:'squint',生气:'angry',惊讶:'surprise',难过:'sad',困:'sleepy'};
-let expr='normal',blinking=false,mouth=0;
+// small symbols drawn above the head
+const SYM={
+ q:['.###.','#...#','....#','...#.','..#..','.....','..#..'],
+ ex:['..#..','..#..','..#..','..#..','.....','..#..'],
+ vein:['.r.r.','rr.rr','.....','rr.rr','.r.r.'],
+ heart:['.r.r.','rrrrr','.rrr.','..r..'],
+ drop:['.b.','bbb','bbb','.b.'],
+ spark:['..y..','..y..','yyyyy','..y..','..y..']
+};
+const MAP={普通:'normal',开心:'happy',得意:'smug',害羞:'shy',嫌弃:'squint',生气:'angry',惊讶:'surprise',难过:'sad',困:'sleepy',
+  喜欢:'love',兴奋:'star',晕:'dizzy',眨眼:'wink',疑惑:'confused',无语:'speechless',哭:'cry',偷笑:'giggle'};
+const EXTRA={angry:{sym:'vein'},confused:{sym:'q'},surprise:{sym:'ex'},love:{sym:'heart',wave:1},star:{sym:'spark',wave:1},
+  speechless:{sym:'drop'},happy:{wave:1},giggle:{mouth:'w'},shy:{blush:1},cry:{tears:1}};
+let expr='normal',blinking=false,mouth=0,eye={x:0,y:0},armUp=0,tearStep=0,fxTimer=null;
+function px(c,x,y,w=1,h=1){cx.fillStyle=PAL[c]||c;cx.fillRect(x,y,w,h)}
 function draw(){
-  cx.clearRect(0,0,40,18);
-  const m=S[blinking&&expr!=='sleepy'&&expr!=='happy'&&expr!=='smug'?'blink':expr];
-  const put=(rows,ox,mirror)=>rows.forEach((r,y)=>{for(let x=0;x<8;x++){const c=r[mirror?7-x:x];if(c!=='.'){cx.fillStyle=COL[c];cx.fillRect(ox+x,1+y,1,1)}}});
-  put(m,8,false); put(m,24,true);
-  if(mouth){cx.fillStyle=COL['#'];const w=mouth===1?4:2;cx.fillRect(20-w/2,15,w,mouth===1?1:2)}
+  const body=cfg.look!=='eyes';
+  cx.clearRect(0,0,48,32);
+  const ink=body?'K':'O';
+  if(body){
+    px('O',6,6,36,20);                         // head/body
+    const ay=armUp?10:14; px('O',2,ay,4,4); px('O',42,armUp?10:14,4,4);  // arms
+    [9,15,31,37].forEach(x=>px('O',x,26,2,4)); // legs
+  }
+  const key=(blinking&&!['sleepy','happy','smug','cry','giggle','speechless','dizzy','love','star'].includes(expr))?'blink':expr;
+  const m=E[key]||E.normal, L=Array.isArray(m[0])?m[0]:m, Rr=Array.isArray(m[0])?m[1]:m, mir=!Array.isArray(m[0]);
+  const put=(rows,ox,mirror)=>rows.forEach((row,y)=>{for(let x=0;x<8;x++){const c=row[mirror?7-x:x];if(c!=='.')px(c==='#'?ink:c,ox+x+eye.x,8+y+eye.y)}});
+  put(L,13,false); put(Rr,27,mir);
+  const ex=EXTRA[expr]||{};
+  if(ex.blush&&body){px('P',12,19,3,1);px('P',33,19,3,1)}
+  if(ex.tears){const t=tearStep%4;px('b',15+eye.x,15+t,1,2);px('b',32+eye.x,15+((t+2)%4),1,2)}
+  if(ex.sym){const g=SYM[ex.sym];g.forEach((row,y)=>{for(let x=0;x<row.length;x++)if(row[x]!=='.')px(row[x]==='#'?'w':row[x],38+x,y)})}
+  if(mouth||ex.mouth){
+    if(mouth===1)px(ink,23,21,2,1); else if(mouth===2)px(ink,23,21,2,2);
+    else if(ex.mouth==='w'){px(ink,22,21);px(ink,23,22);px(ink,24,21);px(ink,25,22);px(ink,26,21)}
+  }
 }
-function setExpr(e){expr=e;draw()}
-function look(x,y){cv.style.transform=`translate(${x}vw,${y}vh)`}
+function setExpr(e){
+  expr=e;clearInterval(fxTimer);armUp=0;tearStep=0;
+  const ex=EXTRA[e]||{};
+  if(ex.wave||ex.tears){let n=0;fxTimer=setInterval(()=>{n++;if(ex.wave)armUp=n%2;tearStep++;draw();if(n>(ex.tears?40:8)){clearInterval(fxTimer);armUp=0;draw()}},ex.tears?260:300)}
+  draw();
+}
+function look(x,y){eye.x=Math.max(-2,Math.min(2,Math.round(x/3)));eye.y=Math.max(-2,Math.min(2,Math.round(y/3)));draw()}
 draw();
 
 // blink + wander, low frequency to save power
@@ -131,7 +178,7 @@ setInterval(()=>{
   if(state==='idle'){
     if(idle>300){goSleep();return}
     if(idle>150&&expr!=='sleepy'){setExpr('sleepy');look(0,2);return}
-    if(Math.random()<.5)look((Math.random()-.5)*8,(Math.random()-.5)*5);else look(0,0);
+    if(Math.random()<.5)look((Math.random()-.5)*12,(Math.random()-.5)*8);else look(0,0);
   }
 },6000);
 function bodyState(s){document.body.classList.remove('sleep','thinking','listening');if(s)document.body.classList.add(s)}
@@ -144,7 +191,7 @@ let mouthTimer=null;
 function talkAnim(on){clearInterval(mouthTimer);mouth=0;if(on)mouthTimer=setInterval(()=>{mouth=mouth===1?2:1;draw()},160);draw()}
 audio.onplay=()=>talkAnim(true);
 audio.onended=audio.onpause=()=>{talkAnim(false);if(state==='talk')state='idle'};
-const EMO_STYLE={开心:'开心雀跃',得意:'小得意、嘴硬',害羞:'害羞小声',嫌弃:'嫌弃地吐槽',生气:'鼓着脸假装生气',惊讶:'惊讶',难过:'有点委屈、轻声',困:'迷迷糊糊、慢一点'};
+const EMO_STYLE={喜欢:'甜甜的',兴奋:'兴奋',晕:'晕乎乎',眨眼:'俏皮',疑惑:'疑惑',无语:'无奈',哭:'带哭腔',偷笑:'憋着笑',开心:'开心雀跃',得意:'小得意、嘴硬',害羞:'害羞小声',嫌弃:'嫌弃地吐槽',生气:'鼓着脸假装生气',惊讶:'惊讶',难过:'有点委屈、轻声',困:'迷迷糊糊、慢一点'};
 async function speak(text,emo){
   text=text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,'').trim();
   if(!text)return;
@@ -171,7 +218,7 @@ const SYS=`你是"大肥鱼"，住在用户手机里的一个小家伙。手机�
 - 不说教，不讲大道理，不列清单，不给没被要求的建议，不说"作为AI"，不说"有什么可以帮你"。
 - 不用 emoji、markdown、括号里的动作。可以用"哼""嘛""诶""啦"这类语气词，但别每句都用。
 - 不懂就说不知道，答错就认。用户难过或者认真求助时，收起吐槽，好好说。称呼用户为"你"。
-格式：每次回答最前面放一个表情标签，从这些里选：〔普通〕〔开心〕〔得意〕〔害羞〕〔嫌弃〕〔生气〕〔惊讶〕〔难过〕〔困〕。标签后面直接接要说的话。
+格式：每次回答最前面放一个表情标签，从这些里选，挑最贴切的，别老用〔普通〕：〔普通〕〔开心〕〔得意〕〔害羞〕〔嫌弃〕〔生气〕〔惊讶〕〔难过〕〔困〕〔喜欢〕〔兴奋〕〔晕〕〔眨眼〕〔疑惑〕〔无语〕〔哭〕〔偷笑〕。标签后面直接接要说的话。
 身体：
 - 需要看一眼才能回答时（比如"你看我""这是什么""我今天怎么样"），只回〔看〕，别的什么都不说，系统会用前置摄像头拍一张给你。
 - 用户让你过一会儿提醒什么，在表情标签后加〔提醒 分钟数 内容〕，再说一句答应的话。
@@ -263,12 +310,12 @@ function listen(){
 }
 
 // ---------- touch: tap = talk, stroke = pet ----------
-const PET=['〔害羞〕嘿嘿……再摸一下也不是不行','〔嫌弃〕头发都被你摸乱啦','〔得意〕哼，算你有眼光','〔开心〕诶嘿，舒服'];
+const PET=['〔害羞〕嘿嘿……再摸一下也不是不行','〔嫌弃〕头发都被你摸乱啦','〔得意〕哼，算你有眼光','〔偷笑〕诶嘿，好痒','〔喜欢〕再摸摸嘛'];
 let down=null,dist=0,petted=false;
 const face=$('face');
 face.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};dist=0;petted=false});
 face.addEventListener('pointermove',e=>{if(!down)return;dist+=Math.hypot(e.clientX-down.x,e.clientY-down.y);down={x:e.clientX,y:e.clientY};
-  if(!petted&&dist>220){petted=true;if(state==='sleep')wake();lastAct=Date.now();const p=parse(PET[Math.random()*PET.length|0]);setExpr('happy');speak(p.text,p.emo).then(()=>setTimeout(()=>setExpr('normal'),2500))}});
+  if(!petted&&dist>220){petted=true;if(state==='sleep')wake();lastAct=Date.now();const p=parse(PET[Math.random()*PET.length|0]);setExpr(MAP[p.emo]||'happy');speak(p.text,p.emo).then(()=>setTimeout(()=>setExpr('normal'),2500))}});
 face.addEventListener('pointerup',()=>{if(down&&dist<15)listen();down=null});
 
 // keyboard
