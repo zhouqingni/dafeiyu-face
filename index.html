@@ -67,8 +67,8 @@ body.listening #mic{opacity:1;animation:pulse 1s infinite}
 
 <div id="panel">
   <h2>设置</h2>
-  <label for="kMimo">MiMo API Key（看东西、说话用）</label><input id="kMimo" autocomplete="off">
-  <label for="kDs">DeepSeek API Key（聊天用，回得快）</label><input id="kDs" autocomplete="off">
+  <label for="kMimo">MiMo API Key（听、说话用）</label><input id="kMimo" autocomplete="off">
+  <label for="kDs">DeepSeek API Key（聊天、看东西用，回得快）</label><input id="kDs" autocomplete="off">
   <label for="chatP">聊天用哪个</label>
   <select id="chatP"><option value="deepseek">DeepSeek（快）</option><option value="mimo">MiMo</option></select>
   <label for="voice">声音</label>
@@ -272,10 +272,19 @@ function sysMsg(){
   return {role:'system',content:SYS+`\n现在是${d.getMonth()+1}月${d.getDate()}日 星期${w} ${d.getHours()}点${String(d.getMinutes()).padStart(2,'0')}分。`};
 }
 async function llm(msgs,vision){
-  const useMimo=vision||cfg.chat==='mimo'||!cfg.ds;
-  const url=useMimo?'https://api.xiaomimimo.com/v1/chat/completions':'https://api.deepseek.com/chat/completions';
-  const body=useMimo?{model:'mimo-v2.6-flash',messages:msgs,max_tokens:150,thinking:{type:'disabled'}}:{model:'deepseek-chat',messages:msgs,max_tokens:150,temperature:1.1};
-  const r=await fetch(url,{method:'POST',headers:{'Authorization':'Bearer '+(useMimo?cfg.mimo:cfg.ds),'Content-Type':'application/json'},body:JSON.stringify(body)});
+  // chat: DeepSeek (fast) unless MiMo chosen; seeing: DeepSeek vision (≈1.6s) with MiMo as fallback
+  const ds=!!cfg.ds&&(vision||cfg.chat!=='mimo');
+  const url=ds?'https://api.deepseek.com/chat/completions':'https://api.xiaomimimo.com/v1/chat/completions';
+  const body=ds?(vision?{model:'deepseek-v4-flash-vision-exp',messages:msgs,max_tokens:150,thinking:{type:'disabled'}}:{model:'deepseek-chat',messages:msgs,max_tokens:150,temperature:1.1})
+               :{model:'mimo-v2.6-flash',messages:msgs,max_tokens:150,thinking:{type:'disabled'}};
+  const r=await fetch(url,{method:'POST',headers:{'Authorization':'Bearer '+(ds?cfg.ds:cfg.mimo),'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){ if(ds&&vision&&cfg.mimo){return llmMimo(msgs)} throw new Error('HTTP '+r.status) }
+  const t=(await r.json()).choices[0].message.content||'';
+  if(!t&&ds&&vision&&cfg.mimo)return llmMimo(msgs);
+  return t;
+}
+async function llmMimo(msgs){
+  const r=await fetch('https://api.xiaomimimo.com/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+cfg.mimo,'Content-Type':'application/json'},body:JSON.stringify({model:'mimo-v2.6-flash',messages:msgs,max_tokens:150,thinking:{type:'disabled'}})});
   if(!r.ok)throw new Error('HTTP '+r.status);
   return (await r.json()).choices[0].message.content||'';
 }
