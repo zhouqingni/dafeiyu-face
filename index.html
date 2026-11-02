@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="大肥鱼">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
 <meta name="theme-color" content="#000000">
 <title>大肥鱼</title>
 <style>
@@ -60,7 +63,7 @@ body.listening #mic{opacity:1;animation:pulse 1s infinite}
 <button class="btn" id="bSet" aria-label="设置">⚙</button>
 <button class="btn" id="bKey" aria-label="打字">⌨</button>
 <form id="type"><input id="tin" placeholder="跟大肥鱼说…" autocomplete="off"><button>发</button></form>
-<div id="start"><b>点一下，叫醒大肥鱼</b><span>点一下脸开始说话，说完停两秒它就自己听完（也可以再点一下结束） · 在脸上来回摸是摸头</span></div>
+<div id="start"><b>点一下，叫醒大肥鱼</b><span id="a2hs" style="color:#D97757;display:none">想横屏全屏：点 Safari 的「分享」→「添加到主屏幕」，以后从桌面图标打开就没有地址栏了</span><span>直接对它说话就行，不用点 · 在脸上来回摸是摸头 · 在脸上来回摸是摸头</span></div>
 
 <div id="panel">
   <h2>设置</h2>
@@ -69,11 +72,15 @@ body.listening #mic{opacity:1;animation:pulse 1s infinite}
   <label for="chatP">聊天用哪个</label>
   <select id="chatP"><option value="deepseek">DeepSeek（快）</option><option value="mimo">MiMo</option></select>
   <label for="voice">声音</label>
-  <select id="voice"><option value="冰糖">冰糖</option><option value="茉莉">茉莉</option><option value="design">自定义设计（每次可能略有不同）</option></select>
+  <select id="voice"><option value="冰糖">冰糖（可爱，要等约 3 秒）</option><option value="fast">iPhone 自带（快，立刻说）</option><option value="茉莉">茉莉</option><option value="design">自定义设计（每次可能略有不同）</option></select>
+  <label for="hands">听的方式</label>
+  <select id="hands"><option value="on">一直听着，开口就录（推荐）</option><option value="off">点一下脸才听</option></select>
   <label for="asr">听写方式</label>
   <select id="asr"><option value="mimo">MiMo 识别（推荐）</option><option value="ios">iPhone 自带听写</option></select>
   <label for="look">样子</label>
-  <select id="look"><option value="body">整屏橙色（像 Claude）</option><option value="eyes">只有眼睛（更省电）</option></select>
+  <select id="look"><option value="eyes">黑屏 + 橙色眼睛</option><option value="body">整屏橙色</option></select>
+  <label for="rate">语速</label>
+  <select id="rate"><option value="1.15">快一点</option><option value="1.3">快（默认）</option><option value="1.45">很快</option><option value="1">原速</option></select>
   <label for="vstyle">声音描述（给“冰糖/茉莉”当语气，给“自定义”当音色）</label>
   <input id="vstyle">
   <div class="row"><button id="close">取消</button><button id="save">保存</button></div>
@@ -90,14 +97,14 @@ if(location.hash.startsWith('#setup=')){
   try{const o=JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(7)))));for(const k in o)SS(k,o[k]);}catch(e){}
   history.replaceState(null,'',location.pathname);
 }
-const DEF_STYLE='可爱软糯的小女生声音，奶甜，带点傲娇和小得意，语速稍快，轻快俏皮';
+const DEF_STYLE='可爱软糯的小女生声音，奶甜，带点傲娇和小得意，语速快，轻快俏皮，句子之间不要拖';
 const cfg={get mimo(){return LS('mimo')||''},get ds(){return LS('ds')||''},
-  get chat(){return LS('chat')||'deepseek'},get voice(){return LS('voice')||'冰糖'},get vstyle(){return LS('vstyle')||DEF_STYLE},get look(){return LS('look')||'body'},get asr(){return LS('asr')||'mimo'}};
+  get chat(){return LS('chat')||'deepseek'},get voice(){return LS('voice')||'冰糖'},get vstyle(){return LS('vstyle')||DEF_STYLE},get look(){return LS('look2')||'eyes'},get asr(){return LS('asr')||'mimo'},get hands(){return LS('hands')||'on'},get rate(){return +(LS('rate')||1.3)}};
 const $=id=>document.getElementById(id);
 const panel=$('panel');
-$('bSet').onclick=e=>{e.stopPropagation();$('kMimo').value=cfg.mimo;$('kDs').value=cfg.ds;$('chatP').value=cfg.chat;$('voice').value=cfg.voice;$('vstyle').value=cfg.vstyle;$('look').value=cfg.look;$('asr').value=cfg.asr;panel.classList.add('on')};
+$('bSet').onclick=e=>{e.stopPropagation();$('kMimo').value=cfg.mimo;$('kDs').value=cfg.ds;$('chatP').value=cfg.chat;$('voice').value=cfg.voice;$('vstyle').value=cfg.vstyle;$('look').value=cfg.look;$('asr').value=cfg.asr;$('hands').value=cfg.hands;$('rate').value=String(cfg.rate);panel.classList.add('on')};
 $('close').onclick=()=>panel.classList.remove('on');
-$('save').onclick=()=>{SS('mimo',$('kMimo').value.trim());SS('ds',$('kDs').value.trim());SS('chat',$('chatP').value);SS('voice',$('voice').value);SS('vstyle',$('vstyle').value.trim()||DEF_STYLE);SS('look',$('look').value);SS('asr',$('asr').value);panel.classList.remove('on');layout()};
+$('save').onclick=()=>{SS('mimo',$('kMimo').value.trim());SS('ds',$('kDs').value.trim());SS('chat',$('chatP').value);SS('voice',$('voice').value);SS('vstyle',$('vstyle').value.trim()||DEF_STYLE);SS('look2',$('look').value);SS('asr',$('asr').value);SS('hands',$('hands').value);SS('rate',$('rate').value);panel.classList.remove('on');layout();if(cfg.hands==='on')startEars()};
 
 // ---------- pixel face ----------
 const cv=$('cv'),cx=cv.getContext('2d');
@@ -106,26 +113,27 @@ const PAL={O:'#D97757',K:'#1b0f0a',p:'#F59AAA',P:'#E2667F',r:'#E8394A',y:'#FFD34
 const R=(n,str)=>Array.from({length:n},()=>str);
 const blank=()=>R(12,'........');
 const mk=rows=>{const b=blank();for(const k in rows)b[k]=rows[k];return b};
+const N8={2:'..####..',3:'..####..',4:'..####..',5:'..####..',6:'..####..',7:'..####..',8:'..####..',9:'..####..'};
 const E={
- normal:mk({2:'...##...',3:'...##...',4:'...##...',5:'...##...',6:'...##...',7:'...##...',8:'...##...',9:'...##...'}),
- blink:mk({8:'..####..'}),
- listen:mk({1:'...##...',2:'...##...',3:'...##...',4:'...##...',5:'...##...',6:'...##...',7:'...##...',8:'...##...',9:'...##...',10:'...##...'}),
- happy:mk({4:'...##...',5:'..####..',6:'.##..##.',7:'.#....#.'}),
- smug:mk({6:'.#....#.',7:'..####..'}),
- shy:mk({4:'...##...',5:'...##...',6:'...##...',7:'...##...',8:'...##...',11:'.pp.pp..'}),
- squint:mk({5:'.######.',6:'....##..',7:'....##..'}),
- angry:mk({2:'#.......',3:'.##.....',4:'...##...',5:'...##...',6:'...##...',7:'...##...',8:'...##...',9:'...##...'}),
- surprise:mk({1:'...##...',2:'..####..',3:'..####..',4:'..####..',5:'..####..',6:'..####..',7:'..####..',8:'..####..',9:'..####..',10:'...##...'}),
- sad:mk({2:'.....##.',3:'...##...',5:'...##...',6:'...##...',7:'...##...',8:'...##...',9:'...##...',11:'...b....'}),
+ normal:mk(N8),
+ blink:mk({8:'.######.'}),
+ listen:mk({1:'..####..',2:'..####..',3:'..####..',4:'..####..',5:'..####..',6:'..####..',7:'..####..',8:'..####..',9:'..####..',10:'..####..'}),
+ happy:mk({3:'...##...',4:'..####..',5:'.##..##.',6:'##....##'}),
+ smug:mk({6:'##....##',7:'.######.'}),
+ shy:mk({3:'..####..',4:'..####..',5:'..####..',6:'..####..',7:'..####..',8:'..####..'}),
+ squint:mk({4:'########',5:'..####..',6:'..####..'}),
+ angry:mk({2:'..#.....',3:'..##....',4:'..###...',5:'..####..',6:'..####..',7:'..####..',8:'..####..',9:'..####..'}),
+ surprise:mk({1:'..####..',2:'.######.',3:'.######.',4:'.######.',5:'.######.',6:'.######.',7:'.######.',8:'.######.',9:'.######.',10:'..####..'}),
+ sad:mk({3:'.....#..',4:'....##..',5:'...###..',6:'..####..',7:'..####..',8:'..####..',9:'..####..'}),
  sleepy:mk({8:'.######.'}),
- love:mk({2:'.rr..rr.',3:'rrrrrrrr',4:'rrrrrrrr',5:'.rrrrrr.',6:'..rrrr..',7:'...rr...'}),
+ love:mk({2:'.##..##.',3:'########',4:'########',5:'########',6:'.######.',7:'..####..',8:'...##...'}),
  star:mk({1:'...yy...',2:'...yy...',3:'yyyyyyyy',4:'.yyyyyy.',5:'..yyyy..',6:'.yy..yy.',7:'yy....yy'}),
- dizzy:mk({2:'##....##',3:'.##..##.',4:'..####..',5:'...##...',6:'..####..',7:'.##..##.',8:'##....##'}),
- wink:[mk({2:'...##...',3:'...##...',4:'...##...',5:'...##...',6:'...##...',7:'...##...',8:'...##...',9:'...##...'}),mk({4:'....##..',5:'..##....',6:'....##..'})],
- confused:[mk({2:'...##...',3:'...##...',4:'...##...',5:'...##...',6:'...##...',7:'...##...',8:'...##...',9:'...##...'}),mk({5:'...##...',6:'...##...',7:'...##...',8:'...##...'})],
- speechless:mk({6:'.######.'}),
- cry:mk({5:'..####..',6:'.#....#.'}),
- giggle:mk({4:'...##...',5:'..####..',6:'.##..##.',7:'.#....#.'})
+ dizzy:mk({2:'##....##',3:'###..###',4:'.######.',5:'..####..',6:'..####..',7:'.######.',8:'###..###',9:'##....##'}),
+ wink:[mk(N8),mk({4:'.....##.',5:'...###..',6:'.###....',7:'...###..',8:'.....##.'})],
+ confused:[mk(N8),mk({5:'..####..',6:'..####..',7:'..####..',8:'..####..'})],
+ speechless:mk({6:'########'}),
+ cry:mk({5:'.######.',6:'##....##'}),
+ giggle:mk({3:'...##...',4:'..####..',5:'.##..##.',6:'##....##'})
 };
 // small symbols drawn above the head
 const SYM={
@@ -138,36 +146,37 @@ const SYM={
 };
 const MAP={普通:'normal',开心:'happy',得意:'smug',害羞:'shy',嫌弃:'squint',生气:'angry',惊讶:'surprise',难过:'sad',困:'sleepy',
   喜欢:'love',兴奋:'star',晕:'dizzy',眨眼:'wink',疑惑:'confused',无语:'speechless',哭:'cry',偷笑:'giggle'};
-const EXTRA={angry:{sym:'vein'},confused:{sym:'q'},surprise:{sym:'ex'},love:{sym:'heart',wave:1},star:{sym:'spark',wave:1},
+const EXTRA={angry:{sym:'vein'},confused:{sym:'q'},surprise:{sym:'ex'},love:{sym:'heart',wave:1,red:1},star:{sym:'spark',wave:1},
   speechless:{sym:'drop'},happy:{wave:1},giggle:{mouth:'w'},shy:{blush:1},cry:{tears:1}};
 let expr='normal',blinking=false,mouth=0,eye={x:0,y:0},armUp=0,tearStep=0,fxTimer=null;
 function px(c,x,y,w=1,h=1){cx.fillStyle=PAL[c]||c;cx.fillRect(x,y,w,h)}
-let GW=48,GH=32;
+let GW=44,GH=20;
 function layout(){
   const r=innerWidth/innerHeight;
-  if(r>=1){GH=32;GW=Math.round(32*r)}else{GW=40;GH=Math.round(40/r)}
+  if(r>=1){GH=20;GW=Math.max(30,Math.round(20*r))}else{GW=30;GH=Math.round(30/r)}
   cv.width=GW;cv.height=GH;
-  document.body.classList.toggle('m-body',cfg.look!=='eyes');
+  document.body.classList.toggle('m-body',cfg.look==='body');
   draw();
 }
 function draw(){
-  const body=cfg.look!=='eyes';
+  const body=cfg.look==='body';
   cx.fillStyle=body?PAL.O:'#000';cx.fillRect(0,0,GW,GH);
   const ink=body?'K':'O';
-  const mx=Math.floor(GW/2), ey=Math.floor(GH/2)-7;   // eye block top
-  const lx=mx-15, rx=mx+7;                             // eye block left x
+  const mx=Math.floor(GW/2), ey=Math.floor(GH/2)-6;
+  const gap=Math.min(9,Math.round(GW*0.18));        // half distance between eye centres
+  const lx=mx-gap-4, rx=mx+gap-4;
   const key=(blinking&&!['sleepy','happy','smug','cry','giggle','speechless','dizzy','love','star'].includes(expr))?'blink':expr;
   const m=E[key]||E.normal, L=Array.isArray(m[0])?m[0]:m, Rr=Array.isArray(m[0])?m[1]:m, mir=!Array.isArray(m[0]);
-  const put=(rows,ox,mirror)=>rows.forEach((row,y)=>{for(let x=0;x<8;x++){const c=row[mirror?7-x:x];if(c!=='.')px(c==='#'?ink:(c==='p'&&body?'P':c),ox+x+eye.x,ey+y+eye.y)}});
-  put(L,lx,false); put(Rr,rx,mir);
   const ex=EXTRA[expr]||{};
-  if(ex.blush){px(body?'P':'p',lx-1,ey+11,4,1);px(body?'P':'p',rx+5,ey+11,4,1)}
-  if(ex.tears){const t=tearStep%4;px('b',lx+2+eye.x,ey+7+t,1,2);px('b',rx+5+eye.x,ey+7+((t+2)%4),1,2)}
-  if(ex.sym){const g=SYM[ex.sym];const sx=rx+10,sy=Math.max(1,ey-4);g.forEach((row,y)=>{for(let x=0;x<row.length;x++)if(row[x]!=='.')px(row[x]==='#'?(body?'K':'w'):row[x],sx+x,sy+y)})}
-  if(armUp){px(ink,lx-3,ey-2+0,1,1);px(ink,rx+10,ey-2,1,1)}   // tiny sparkle pixels when excited
-  const my=ey+14;
+  const put=(rows,ox,mirror)=>rows.forEach((row,y)=>{for(let x=0;x<8;x++){const c=row[mirror?7-x:x];if(c!=='.')px(c==='#'?(ex.red?'r':ink):c,ox+x+eye.x,ey+y+eye.y)}});
+  put(L,lx,false); put(Rr,rx,mir);
+  if(ex.blush){px(body?'P':'p',lx,ey+11,4,1);px(body?'P':'p',rx+4,ey+11,4,1)}
+  if(ex.tears){const t=tearStep%3;px('b',lx+1+eye.x,ey+7+t,1,2);px('b',rx+6+eye.x,ey+7+((t+1)%3),1,2)}
+  if(ex.sym){const g=SYM[ex.sym];const sx=Math.min(GW-g[0].length-1,rx+10),sy=Math.max(0,ey-1);g.forEach((row,y)=>{for(let x=0;x<row.length;x++)if(row[x]!=='.')px(row[x]==='#'?(body?'K':'w'):row[x],sx+x,sy+y)})}
+  if(armUp){px('y',lx-2,ey+1);px('y',rx+9,ey+1)}
+  const my=Math.min(GH-2,ey+12);
   if(mouth===1)px(ink,mx-1,my,2,1); else if(mouth===2)px(ink,mx-1,my,2,2);
-  else if(ex.mouth==='w'){px(ink,mx-3,my);px(ink,mx-2,my+1);px(ink,mx-1,my);px(ink,mx,my+1);px(ink,mx+1,my)}
+  else if(ex.mouth==='w'){px(ink,mx-2,my);px(ink,mx-1,my+1);px(ink,mx,my);px(ink,mx+1,my+1);px(ink,mx+2,my)}
 }
 function setExpr(e){
   expr=e;clearInterval(fxTimer);armUp=0;tearStep=0;
@@ -202,24 +211,39 @@ const audio=new Audio();audio.playsInline=true;
 let mouthTimer=null;
 function talkAnim(on){clearInterval(mouthTimer);mouth=0;if(on)mouthTimer=setInterval(()=>{mouth=mouth===1?2:1;draw()},160);draw()}
 audio.onplay=()=>talkAnim(true);
-audio.onended=audio.onpause=()=>{talkAnim(false);if(state==='talk')state='idle'};
+audio.onended=audio.onpause=()=>{talkAnim(false);if(state==='talk')state='idle';lastSpokeEnd=Date.now()};
 const EMO_STYLE={喜欢:'甜甜的',兴奋:'兴奋',晕:'晕乎乎',眨眼:'俏皮',疑惑:'疑惑',无语:'无奈',哭:'带哭腔',偷笑:'憋着笑',开心:'开心雀跃',得意:'小得意、嘴硬',害羞:'害羞小声',嫌弃:'嫌弃地吐槽',生气:'鼓着脸假装生气',惊讶:'惊讶',难过:'有点委屈、轻声',困:'迷迷糊糊、慢一点'};
+let lastSpokeEnd=0;
+function speakFast(text){
+  return new Promise(res=>{
+    try{
+      const u=new SpeechSynthesisUtterance(text);u.lang='zh-CN';u.rate=Math.min(2,1.05*cfg.rate);u.pitch=1.45;
+      const v=speechSynthesis.getVoices().filter(v=>/zh[-_](CN|Hans)/i.test(v.lang));
+      const pick=v.find(v=>/Tingting|婷婷|Lili|莉莉|Meijia/i.test(v.name))||v[0];if(pick)u.voice=pick;
+      u.onstart=()=>{state='talk';talkAnim(true)};
+      u.onend=u.onerror=()=>{talkAnim(false);if(state==='talk')state='idle';lastSpokeEnd=Date.now();res()};
+      speechSynthesis.cancel();speechSynthesis.speak(u);
+    }catch(e){$('heard').textContent=text;res()}
+  });
+}
 async function speak(text,emo){
   text=text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,'').trim();
   if(!text)return;
-  if(!cfg.mimo){$('heard').textContent=text;return}
+  if(cfg.voice==='fast'||!cfg.mimo)return speakFast(text);
   const design=cfg.voice==='design';
   const instr=design?cfg.vstyle:(cfg.vstyle+(EMO_STYLE[emo]?'，这句'+EMO_STYLE[emo]:''));
   const body={model:design?'mimo-v2.5-tts-voicedesign':'mimo-v2.5-tts',
     messages:[{role:'user',content:instr},{role:'assistant',content:text}],audio:design?{format:'wav'}:{format:'wav',voice:cfg.voice}};
   try{
     const r=await fetch('https://api.xiaomimimo.com/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+cfg.mimo,'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const d=await r.json();const b64=d.choices[0].message.audio.data;
-    const bin=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+    const d=await r.json();const b64s=d.choices[0].message.audio.data;
+    const bin=Uint8Array.from(atob(b64s),c=>c.charCodeAt(0));
     if(audio.src.startsWith('blob:'))URL.revokeObjectURL(audio.src);
     audio.src=URL.createObjectURL(new Blob([bin],{type:'audio/wav'}));
+    audio.preservesPitch=true;audio.webkitPreservesPitch=true;audio.playbackRate=cfg.rate;
     state='talk';await audio.play();
-  }catch(e){$('heard').textContent=text;console.log('tts fail',e)}
+    await new Promise(r=>audio.addEventListener('ended',r,{once:true}));
+  }catch(e){console.log('tts fail',e);return speakFast(text)}
 }
 
 // ---------- brain ----------
@@ -298,7 +322,7 @@ async function ask(userText){
     bodyState('');look(0,0);setExpr(MAP[p.emo]||'normal');
     if(p.rem){setTimeout(()=>{wake();setExpr('surprise');speak(p.rem.what,'惊讶')},p.rem.min*60000)}
     await speak(p.text,p.emo);
-    if(p.sleep){const go=()=>{goSleep()};if(state==='talk')audio.addEventListener('ended',go,{once:true});else setTimeout(go,1500)}
+    if(p.sleep){goSleep()}
     else setTimeout(()=>{if(state!=='sleep'&&state!=='talk')setExpr('normal')},6000);
   }catch(e){
     console.log(e);bodyState('');setExpr('sad');$('heard').textContent='连不上脑子了：'+e.message+'（检查一下设置里的 key）';
@@ -328,35 +352,56 @@ async function asrMimo(wav){
   if(!r.ok)throw new Error('识别 HTTP '+r.status);
   return ((await r.json()).choices[0].message.content||'').trim();
 }
-async function listenMimo(){
+// always-on ears: mic stays open, speech is detected locally, only the spoken part is sent to MiMo
+let ears=null;
+async function startEars(){
+  if(ears||!cfg.mimo)return ears;
   let st;
   try{st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}})}
-  catch(e){$('heard').textContent='要允许用麦克风才听得见你';return}
+  catch(e){$('heard').textContent='要允许用麦克风才听得见你';return null}
   if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();
   if(actx.state==='suspended')await actx.resume();
-  const src=actx.createMediaStreamSource(st),proc=actx.createScriptProcessor(4096,1,1),chunks=[];
-  let spoke=false,lastVoice=performance.now(),t0=performance.now(),done=false;
-  listening=true;if(state==='sleep')wake();$('heard').textContent='在听…';bodyState('listening');setExpr('listen');look(0,0);lastAct=Date.now();
-  const finish=async(cancel)=>{
-    if(done)return;done=true;listening=false;stopRec=null;
-    proc.disconnect();src.disconnect();st.getTracks().forEach(t=>t.stop());bodyState('');
-    if(cancel||!spoke){setExpr('normal');$('heard').textContent=spoke?'':'没听到声音诶';return}
-    setExpr('normal');bodyState('thinking');$('heard').textContent='…';
-    try{const text=await asrMimo(encodeWav(down16k(chunks,actx.sampleRate),16000));bodyState('');
-      if(text)ask(text);else{$('heard').textContent='没听清诶';setExpr('confused')}}
-    catch(e){bodyState('');setExpr('sad');$('heard').textContent='耳朵坏了：'+e.message}
-  };
-  stopRec=()=>finish(false);
-  proc.onaudioprocess=e=>{
-    const d=e.inputBuffer.getChannelData(0);chunks.push(new Float32Array(d));
-    let sum=0;for(let i=0;i<d.length;i+=4)sum+=d[i]*d[i];const rms=Math.sqrt(sum/(d.length/4));
+  const src=actx.createMediaStreamSource(st),proc=actx.createScriptProcessor(2048,1,1);
+  const E={st,src,proc,cap:null,pre:[],floor:0.01,loud:0,forceEnd:false,manual:false};
+  proc.onaudioprocess=ev=>{
+    const d=new Float32Array(ev.inputBuffer.getChannelData(0));
+    let sum=0;for(let i=0;i<d.length;i+=2)sum+=d[i]*d[i];const rms=Math.sqrt(sum/(d.length/2));
     const now=performance.now();
-    if(rms>0.02){spoke=true;lastVoice=now}
-    if(spoke&&now-lastVoice>1800)finish(false);
-    else if(!spoke&&now-t0>6000)finish(true);
-    else if(now-t0>25000)finish(false);
+    const deaf=busy||state==='talk'||Date.now()-lastSpokeEnd<500||(cfg.hands!=='on'&&!E.manual);
+    if(!E.cap){
+      E.pre.push(d);if(E.pre.length>8)E.pre.shift();                 // ~0.35s pre-roll
+      if(deaf){E.loud=0;return}
+      E.floor=E.floor*0.98+rms*0.02;
+      const thr=Math.max(0.018,E.floor*3.2);
+      if(rms>thr)E.loud++;else E.loud=0;
+      if(E.loud>=3||E.manual){                                          // ~0.13s of voice starts a capture
+        E.cap={chunks:E.pre.slice(),t0:now,last:now,voiced:0};E.pre=[];
+        listening=true;if(state==='sleep')wake();bodyState('listening');setExpr('listen');look(0,0);$('heard').textContent='在听…';lastAct=Date.now();
+      }
+      return;
+    }
+    const c=E.cap;c.chunks.push(d);
+    const thr=Math.max(0.018,E.floor*3.2);
+    if(rms>thr){c.last=now;c.voiced+=d.length/actx.sampleRate*1000}
+    const quiet=now-c.last;
+    if(E.forceEnd||quiet>1100||now-c.t0>20000||(E.manual&&c.voiced===0&&now-c.t0>6000)){
+      E.cap=null;E.forceEnd=false;E.manual=false;listening=false;bodyState('');
+      if(c.voiced<250){setExpr('normal');$('heard').textContent='';return}
+      setExpr('normal');bodyState('thinking');$('heard').textContent='…';
+      const wav=encodeWav(down16k(c.chunks,actx.sampleRate),16000);
+      busy=true;
+      asrMimo(wav).then(text=>{busy=false;bodyState('');
+        if(text&&text.replace(/[，。？！、\s]/g,'').length>=2)ask(text);else{$('heard').textContent='';setExpr('normal')}})
+       .catch(e=>{busy=false;bodyState('');setExpr('sad');$('heard').textContent='耳朵坏了：'+e.message});
+    }
   };
   src.connect(proc);proc.connect(actx.destination);
+  ears=E;return E;
+}
+async function listenMimo(){
+  const E=await startEars();if(!E)return;
+  if(E.cap){E.forceEnd=true;return}     // tap while recording = done talking
+  E.manual=true;
 }
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 function listenIOS(){
@@ -369,6 +414,7 @@ function listenIOS(){
   rec.start();
 }
 function listen(){
+  if(listening&&ears&&ears.cap){ears.forceEnd=true;return}
   if(listening){stopRec&&stopRec();return}
   if(busy)return;
   try{audio.pause()}catch(e){}
@@ -393,6 +439,8 @@ $('type').onsubmit=e=>{e.preventDefault();const v=$('tin').value.trim();if(v){$(
 
 // ---------- start ----------
 let wl=null;
+try{speechSynthesis.getVoices();speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices()}catch(e){}
+if(!navigator.standalone&&!matchMedia('(display-mode: standalone)').matches&&!matchMedia('(display-mode: fullscreen)').matches){const t=$('a2hs');if(t)t.style.display='block'}
 async function keepAwake(){try{if('wakeLock' in navigator&&!document.hidden)wl=await navigator.wakeLock.request('screen')}catch(e){}}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)keepAwake()});
 $('start').onclick=async()=>{
@@ -402,6 +450,7 @@ $('start').onclick=async()=>{
   try{actx=new (window.AudioContext||window.webkitAudioContext)();actx.resume()}catch(e){}
   keepAwake();wake();setExpr('happy');
   if(!cfg.mimo&&!cfg.ds){$('heard').textContent='先点左下角 ⚙ 填一下 key';return}
+  if(cfg.hands==='on'&&cfg.mimo)startEars();
   speak('诶，你来啦','开心').then(()=>setTimeout(()=>setExpr('normal'),2000));
 };
 })();
