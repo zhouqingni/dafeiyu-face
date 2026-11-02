@@ -72,7 +72,7 @@ body.listening #mic{opacity:1;animation:pulse 1s infinite}
   <label for="chatP">聊天用哪个</label>
   <select id="chatP"><option value="deepseek">DeepSeek（快）</option><option value="mimo">MiMo</option></select>
   <label for="voice">声音</label>
-  <select id="voice"><option value="clone">d. 奶声奶气小女孩（克隆，最可爱）</option><option value="冰糖|夹子音">a. 冰糖 + 夹子音</option><option value="冰糖|撒娇">b. 冰糖 + 撒娇</option><option value="茉莉|夹子音">c. 茉莉 + 夹子音</option><option value="冰糖">冰糖（普通）</option><option value="fast">iPhone 自带（快，立刻说）</option><option value="茉莉">茉莉</option><option value="design">自定义设计（每次可能略有不同）</option></select>
+  <select id="voice"><option value="冰糖|夹子音">a. 冰糖 + 夹子音（推荐）</option><option value="clone">d. 奶声奶气小女孩（克隆，最可爱但慢、不稳定）</option><option value="冰糖|撒娇">b. 冰糖 + 撒娇</option><option value="茉莉|夹子音">c. 茉莉 + 夹子音</option><option value="冰糖">冰糖（普通）</option><option value="fast">iPhone 自带（快，立刻说）</option><option value="茉莉">茉莉</option><option value="design">自定义设计（每次可能略有不同）</option></select>
   <label for="hands">听的方式</label>
   <select id="hands"><option value="on">一直听着，开口就录（推荐）</option><option value="off">点一下脸才听</option></select>
   <label for="asr">听写方式</label>
@@ -99,12 +99,12 @@ if(location.hash.startsWith('#setup=')){
 }
 const DEF_STYLE='可爱软糯的小女生声音，奶甜，带点傲娇和小得意，语速快，轻快俏皮，句子之间不要拖';
 const cfg={get mimo(){return LS('mimo')||''},get ds(){return LS('ds')||''},
-  get chat(){return LS('chat')||'deepseek'},get voice(){return LS('voice2')||'clone'},get vstyle(){return LS('vstyle')||DEF_STYLE},get look(){return LS('look3')||'cube'},get asr(){return LS('asr')||'mimo'},get hands(){return LS('hands')||'on'},get rate(){return +(LS('rate')||1.3)}};
+  get chat(){return LS('chat')||'deepseek'},get voice(){return LS('voice3')||'冰糖|夹子音'},get vstyle(){return LS('vstyle')||DEF_STYLE},get look(){return LS('look3')||'cube'},get asr(){return LS('asr')||'mimo'},get hands(){return LS('hands')||'on'},get rate(){return +(LS('rate')||1.3)}};
 const $=id=>document.getElementById(id);
 const panel=$('panel');
 $('bSet').onclick=e=>{e.stopPropagation();$('kMimo').value=cfg.mimo;$('kDs').value=cfg.ds;$('chatP').value=cfg.chat;$('voice').value=cfg.voice;$('vstyle').value=cfg.vstyle;$('look').value=cfg.look;$('asr').value=cfg.asr;$('hands').value=cfg.hands;$('rate').value=String(cfg.rate);panel.classList.add('on')};
 $('close').onclick=()=>panel.classList.remove('on');
-$('save').onclick=()=>{SS('mimo',$('kMimo').value.trim());SS('ds',$('kDs').value.trim());SS('chat',$('chatP').value);SS('voice2',$('voice').value);SS('vstyle',$('vstyle').value.trim()||DEF_STYLE);SS('look3',$('look').value);SS('asr',$('asr').value);SS('hands',$('hands').value);SS('rate',$('rate').value);panel.classList.remove('on');layout();if(cfg.hands==='on')startEars()};
+$('save').onclick=()=>{SS('mimo',$('kMimo').value.trim());SS('ds',$('kDs').value.trim());SS('chat',$('chatP').value);SS('voice3',$('voice').value);SS('vstyle',$('vstyle').value.trim()||DEF_STYLE);SS('look3',$('look').value);SS('asr',$('asr').value);SS('hands',$('hands').value);SS('rate',$('rate').value);panel.classList.remove('on');layout();if(cfg.hands==='on')startEars()};
 
 // ---------- pixel face ----------
 const cv=$('cv'),cx=cv.getContext('2d');
@@ -215,7 +215,7 @@ function talkAnim(on){clearInterval(mouthTimer);mouth=0;if(on)mouthTimer=setInte
 audio.onplay=()=>talkAnim(true);
 audio.onended=audio.onpause=()=>{talkAnim(false);if(state==='talk')state='idle';lastSpokeEnd=Date.now()};
 const EMO_STYLE={喜欢:'甜甜的',兴奋:'兴奋',晕:'晕乎乎',眨眼:'俏皮',疑惑:'疑惑',无语:'无奈',哭:'带哭腔',偷笑:'憋着笑',开心:'开心雀跃',得意:'小得意、嘴硬',害羞:'害羞小声',嫌弃:'嫌弃地吐槽',生气:'鼓着脸假装生气',惊讶:'惊讶',难过:'有点委屈、轻声',困:'迷迷糊糊、慢一点'};
-let lastSpokeEnd=0,refVoice=null;
+let lastSpokeEnd=0,refVoice=null,speakSeq=0;
 function speakFast(text){
   return new Promise(res=>{
     try{
@@ -225,10 +225,13 @@ function speakFast(text){
       u.onstart=()=>{state='talk';talkAnim(true)};
       u.onend=u.onerror=()=>{talkAnim(false);if(state==='talk')state='idle';lastSpokeEnd=Date.now();res()};
       speechSynthesis.cancel();speechSynthesis.speak(u);
+      setTimeout(()=>{if(state==='talk'){talkAnim(false);state='idle';lastSpokeEnd=Date.now()}res()},1500+text.length*260);
     }catch(e){$('heard').textContent=text;res()}
   });
 }
 async function speak(text,emo){
+  const my=++speakSeq;
+  try{if(!audio.paused)audio.pause()}catch(e){}
   text=text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,'').trim();
   if(!text)return;
   if(cfg.voice==='fast'||!cfg.mimo)return speakFast(text);
@@ -237,23 +240,34 @@ async function speak(text,emo){
   const instr=design?cfg.vstyle:(cfg.vstyle+(EMO_STYLE[emo]?'，这句'+EMO_STYLE[emo]:''));
   let body;
   if(clone){
-    if(!refVoice){const buf=new Uint8Array(await (await fetch('voices/d.wav')).arrayBuffer());refVoice='data:audio/wav;base64,'+b64(buf)}
+    if(!refVoice){const buf=new Uint8Array(await (await fetch('voices/d_ref.wav')).arrayBuffer());refVoice='data:audio/wav;base64,'+b64(buf)}
     body={model:'mimo-v2.5-tts-voiceclone',messages:[{role:'user',content:instr},{role:'assistant',content:text}],audio:{format:'wav',voice:refVoice}};
   }else if(design){
     body={model:'mimo-v2.5-tts-voicedesign',messages:[{role:'user',content:instr},{role:'assistant',content:text}],audio:{format:'wav'}};
   }else{
     body={model:'mimo-v2.5-tts',messages:[{role:'user',content:instr},{role:'assistant',content:(vtag?'('+vtag+')':'')+text}],audio:{format:'wav',voice:vname}};
   }
+  $('heard').textContent=text;                      // show the words right away
+  const tts=async(b,ms)=>{const ac=new AbortController();const t=setTimeout(()=>ac.abort(),ms);
+    try{const r=await fetch('https://api.xiaomimimo.com/v1/chat/completions',{method:'POST',signal:ac.signal,headers:{'Authorization':'Bearer '+cfg.mimo,'Content-Type':'application/json'},body:JSON.stringify(b)});
+      const d=await r.json();return d.choices[0].message.audio.data}finally{clearTimeout(t)}};
   try{
-    const r=await fetch('https://api.xiaomimimo.com/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+cfg.mimo,'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const d=await r.json();const b64s=d.choices[0].message.audio.data;
+    let b64s;
+    try{b64s=await tts(body,8000)}
+    catch(e){if(my!==speakSeq)return;
+      b64s=await tts({model:'mimo-v2.5-tts',messages:[{role:'user',content:cfg.vstyle},{role:'assistant',content:'(夹子音)'+text}],audio:{format:'wav',voice:'冰糖'}},10000)}
+    if(my!==speakSeq)return;                       // a newer line took over
     const bin=Uint8Array.from(atob(b64s),c=>c.charCodeAt(0));
     if(audio.src.startsWith('blob:'))URL.revokeObjectURL(audio.src);
     audio.src=URL.createObjectURL(new Blob([bin],{type:'audio/wav'}));
     audio.preservesPitch=true;audio.webkitPreservesPitch=true;audio.playbackRate=cfg.rate;
-    state='talk';await audio.play();
-    await new Promise(r=>audio.addEventListener('ended',r,{once:true}));
-  }catch(e){console.log('tts fail',e);return speakFast(text)}
+    state='talk';
+    try{await Promise.race([audio.play(),new Promise((_,rj)=>setTimeout(()=>rj(new Error('play timeout')),5000))])}catch(err){state='idle';talkAnim(false);lastSpokeEnd=Date.now();$('heard').textContent=text;return}
+    await new Promise(r=>{let done=false;const fin=()=>{if(done)return;done=true;['ended','pause','error'].forEach(ev=>audio.removeEventListener(ev,fin));r()};
+      ['ended','pause','error'].forEach(ev=>audio.addEventListener(ev,fin));
+      setTimeout(fin,((isFinite(audio.duration)?audio.duration/cfg.rate:12)+3)*1000)});
+    talkAnim(false);if(state==='talk')state='idle';lastSpokeEnd=Date.now();
+  }catch(e){console.log('tts fail',e);state='idle';talkAnim(false);$('heard').textContent=text}
 }
 
 // ---------- brain ----------
@@ -318,9 +332,15 @@ function parse(raw){
   }).replace(/[\[\]【】]/g,'').trim();
   return {emo,see,sleep,rem,text};
 }
-let busy=false;
+let busy=false,busySince=0;
+setInterval(()=>{
+  if(busy&&Date.now()-busySince>30000){busy=false;bodyState('');setExpr('normal');$('heard').textContent='刚才卡住了，再说一次嘛'}
+  if(state==='talk'&&audio.paused&&!speechSynthesis.speaking&&Date.now()-lastSpokeEnd>20000){state='idle';talkAnim(false)}
+  if(ears){if(actx&&actx.state!=='running')actx.resume().catch(()=>{});
+    const tr=ears.st.getAudioTracks()[0];if(!tr||tr.readyState==='ended'){try{ears.proc.disconnect();ears.src.disconnect()}catch(e){};ears=null;startEars()}}
+},2000);
 async function ask(userText){
-  if(busy)return;busy=true;lastAct=Date.now();
+  if(busy)return;busy=true;busySince=Date.now();lastAct=Date.now();
   if(state==='sleep')wake();
   $('heard').textContent=userText;
   bodyState('thinking');setExpr('normal');look(4,-4);
@@ -408,7 +428,7 @@ async function startEars(){
       if(c.voiced<250){setExpr('normal');$('heard').textContent='';return}
       setExpr('normal');bodyState('thinking');$('heard').textContent='…';
       const wav=encodeWav(down16k(c.chunks,actx.sampleRate),16000);
-      busy=true;
+      busy=true;busySince=Date.now();
       asrMimo(wav).then(text=>{busy=false;bodyState('');
         if(text&&text.replace(/[，。？！、\s]/g,'').length>=2)ask(text);else{$('heard').textContent='';setExpr('normal')}})
        .catch(e=>{busy=false;bodyState('');setExpr('sad');$('heard').textContent='耳朵坏了：'+e.message});
@@ -431,12 +451,14 @@ function listenIOS(){
   rec.onerror=e=>{listening=false;bodyState('');$('heard').textContent='听写出错：'+e.error};
   listening=true;stopRec=()=>rec.stop();if(state==='sleep')wake();$('heard').textContent='在听…';bodyState('listening');setExpr('listen');lastAct=Date.now();
   rec.start();
+  setTimeout(()=>{if(listening&&stopRec){try{rec.stop()}catch(e){};setTimeout(()=>{if(listening){listening=false;stopRec=null;bodyState('')}},1500)}},15000);
 }
 function listen(){
   if(listening&&ears&&ears.cap){ears.forceEnd=true;return}
-  if(listening){stopRec&&stopRec();return}
+  if(listening){if(stopRec)stopRec();else listening=false;return}
   if(busy)return;
-  try{audio.pause()}catch(e){}
+  try{audio.pause();speechSynthesis.cancel()}catch(e){}
+  if(state==='talk'){state='idle';talkAnim(false);lastSpokeEnd=Date.now()}
   if(cfg.asr==='ios'&&SR)return listenIOS();
   if(cfg.mimo)return listenMimo();
   if(SR)return listenIOS();
