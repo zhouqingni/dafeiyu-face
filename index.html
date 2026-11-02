@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#000000">
+<title>大肥鱼</title>
+<style>
+:root{--eye:#D97757;--dim:#5a3324;--ui:#3a3a3a;--uifg:#9a9a9a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#000;color:#ddd;overflow:hidden;font-family:-apple-system,"PingFang SC",sans-serif;
+  -webkit-user-select:none;user-select:none;touch-action:none}
+#face{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#cv{width:min(92vw,150vh);image-rendering:pixelated;image-rendering:crisp-edges;transition:transform .5s ease,opacity 1.2s ease}
+body.sleep #cv{opacity:.35}
+#zz{position:fixed;left:62%;top:22%;font:700 28px/1 monospace;color:var(--dim);opacity:0;transition:opacity 1s}
+body.sleep #zz{opacity:1;animation:zz 3s ease-in-out infinite}
+@keyframes zz{50%{transform:translate(8px,-10px)}}
+#dots{position:fixed;left:50%;bottom:18%;transform:translateX(-50%);display:flex;gap:10px;opacity:0;transition:opacity .2s}
+#dots i{width:10px;height:10px;background:var(--eye);animation:dot 1s infinite}
+#dots i:nth-child(2){animation-delay:.2s}#dots i:nth-child(3){animation-delay:.4s}
+@keyframes dot{50%{opacity:.2}}
+body.thinking #dots{opacity:1}
+#mic{position:fixed;left:50%;bottom:16%;transform:translateX(-50%);width:16px;height:16px;border-radius:50%;background:var(--eye);opacity:0;transition:opacity .2s}
+body.listening #mic{opacity:1;animation:pulse 1s infinite}
+@keyframes pulse{50%{transform:translateX(-50%) scale(1.6);opacity:.4}}
+#heard{position:fixed;left:0;right:0;bottom:calc(6% + env(safe-area-inset-bottom));text-align:center;color:#666;font-size:15px;padding:0 20px;min-height:1.4em}
+.btn{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom));width:40px;height:40px;border-radius:12px;border:1px solid var(--ui);background:transparent;color:var(--uifg);font-size:18px;opacity:.35}
+#bSet{left:14px}#bKey{right:14px}
+#start{position:fixed;inset:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:5}
+#start b{font-size:22px;color:var(--eye)}#start span{color:#777;font-size:14px}
+#type{position:fixed;left:12px;right:12px;bottom:calc(64px + env(safe-area-inset-bottom));display:none;gap:8px;z-index:4}
+#type.on{display:flex}
+#type input{flex:1;font-size:17px;padding:10px 12px;border-radius:10px;border:1px solid #444;background:#111;color:#eee}
+#type button{font-size:16px;padding:0 14px;border-radius:10px;border:0;background:var(--eye);color:#000}
+#panel{position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:6;display:none;overflow:auto;padding:calc(24px + env(safe-area-inset-top)) 20px 40px}
+#panel.on{display:block}
+#panel h2{color:var(--eye);font-weight:600;margin:0 0 14px}
+#panel label{display:block;margin:14px 0 6px;color:#aaa;font-size:14px}
+#panel input,#panel select{width:100%;font-size:16px;padding:10px;border-radius:10px;border:1px solid #444;background:#111;color:#eee;-webkit-user-select:text;user-select:text}
+#panel .row{display:flex;gap:10px;margin-top:22px}
+#panel .row button{flex:1;font-size:16px;padding:12px;border-radius:10px;border:0}
+#save{background:var(--eye);color:#000}#close{background:#333;color:#ddd}
+#panel p{color:#777;font-size:13px;line-height:1.6}
+</style>
+</head>
+<body class="sleep">
+<div id="face"><canvas id="cv" width="40" height="18"></canvas></div>
+<div id="zz">z z</div>
+<div id="dots"><i></i><i></i><i></i></div>
+<div id="mic"></div>
+<div id="heard"></div>
+<button class="btn" id="bSet" aria-label="设置">⚙</button>
+<button class="btn" id="bKey" aria-label="打字">⌨</button>
+<form id="type"><input id="tin" placeholder="跟大肥鱼说…" autocomplete="off"><button>发</button></form>
+<div id="start"><b>点一下，叫醒大肥鱼</b><span>点脸说话 · 在脸上来回摸是摸头</span></div>
+
+<div id="panel">
+  <h2>设置</h2>
+  <label for="kMimo">MiMo API Key（看东西、说话用）</label><input id="kMimo" autocomplete="off">
+  <label for="kDs">DeepSeek API Key（聊天用，回得快）</label><input id="kDs" autocomplete="off">
+  <label for="chatP">聊天用哪个</label>
+  <select id="chatP"><option value="deepseek">DeepSeek（快）</option><option value="mimo">MiMo</option></select>
+  <label for="voice">声音</label>
+  <select id="voice"><option value="冰糖">冰糖</option><option value="茉莉">茉莉</option><option value="design">自定义设计（每次可能略有不同）</option></select>
+  <label for="vstyle">声音描述（给“冰糖/茉莉”当语气，给“自定义”当音色）</label>
+  <input id="vstyle">
+  <div class="row"><button id="close">取消</button><button id="save">保存</button></div>
+  <p>Key 只存在这台手机的浏览器里，不会上传到别处，只直接发给小米和 DeepSeek。</p>
+</div>
+
+<script>
+(()=>{
+// ---------- settings ----------
+const LS=k=>{try{return localStorage.getItem('dfy.'+k)}catch(e){return null}};
+const SS=(k,v)=>{try{localStorage.setItem('dfy.'+k,v)}catch(e){}};
+// one-time import: #setup=<base64 json>
+if(location.hash.startsWith('#setup=')){
+  try{const o=JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(7)))));for(const k in o)SS(k,o[k]);}catch(e){}
+  history.replaceState(null,'',location.pathname);
+}
+const DEF_STYLE='可爱软糯的小女生声音，奶甜，带点傲娇和小得意，语速稍快，轻快俏皮';
+const cfg={get mimo(){return LS('mimo')||''},get ds(){return LS('ds')||''},
+  get chat(){return LS('chat')||'deepseek'},get voice(){return LS('voice')||'冰糖'},get vstyle(){return LS('vstyle')||DEF_STYLE}};
+const $=id=>document.getElementById(id);
+const panel=$('panel');
+$('bSet').onclick=e=>{e.stopPropagation();$('kMimo').value=cfg.mimo;$('kDs').value=cfg.ds;$('chatP').value=cfg.chat;$('voice').value=cfg.voice;$('vstyle').value=cfg.vstyle;panel.classList.add('on')};
+$('close').onclick=()=>panel.classList.remove('on');
+$('save').onclick=()=>{SS('mimo',$('kMimo').value.trim());SS('ds',$('kDs').value.trim());SS('chat',$('chatP').value);SS('voice',$('voice').value);SS('vstyle',$('vstyle').value.trim()||DEF_STYLE);panel.classList.remove('on')};
+
+// ---------- pixel face ----------
+const cv=$('cv'),cx=cv.getContext('2d');
+const COL={'#':getComputedStyle(document.documentElement).getPropertyValue('--eye').trim()||'#D97757',p:'#E8728A',b:'#6FB7E8'};
+const S={
+ normal:["........","........","..####..","..####..","..####..","..####..","..####..","..####..","..####..","..####..","........","........"],
+ blink:["........","........","........","........","........","........","........","..####..","........","........","........","........"],
+ happy:["........","........","........","........","...##...","..####..",".##..##.",".#....#.","........","........","........","........"],
+ smug:["........","........","........","........","........","........",".#....#.","..####..","........","........","........","........"],
+ shy:["........","........","........","........","..####..","..####..","..####..","..####..","........","........","p.p..p.p","........"],
+ squint:["........","........","........","........","........",".######.","..####..","..####..","........","........","........","........"],
+ angry:["........","........","#.......",".##.....","..###...","..####..","..####..","..####..","..####..","........","........","........"],
+ surprise:["........","..####..",".######.",".######.",".######.",".######.",".######.",".######.",".######.","..####..","........","........"],
+ sad:["........","........","........","........","......#.","....##..","..####..","..####..","..####..","........","......b.","........"],
+ sleepy:["........","........","........","........","........","........","........","........",".######.","........","........","........"],
+ listen:["........","..####..","..####..","..####..","..####..","..####..","..####..","..####..","..####..","..####..","........","........"]
+};
+const MAP={普通:'normal',开心:'happy',得意:'smug',害羞:'shy',嫌弃:'squint',生气:'angry',惊讶:'surprise',难过:'sad',困:'sleepy'};
+let expr='normal',blinking=false,mouth=0;
+function draw(){
+  cx.clearRect(0,0,40,18);
+  const m=S[blinking&&expr!=='sleepy'&&expr!=='happy'&&expr!=='smug'?'blink':expr];
+  const put=(rows,ox,mirror)=>rows.forEach((r,y)=>{for(let x=0;x<8;x++){const c=r[mirror?7-x:x];if(c!=='.'){cx.fillStyle=COL[c];cx.fillRect(ox+x,1+y,1,1)}}});
+  put(m,8,false); put(m,24,true);
+  if(mouth){cx.fillStyle=COL['#'];const w=mouth===1?4:2;cx.fillRect(20-w/2,15,w,mouth===1?1:2)}
+}
+function setExpr(e){expr=e;draw()}
+function look(x,y){cv.style.transform=`translate(${x}vw,${y}vh)`}
+draw();
+
+// blink + wander, low frequency to save power
+let lastAct=Date.now(),state='sleep';
+function sched(){
+  setTimeout(()=>{ if(state!=='sleep'&&!document.hidden){blinking=true;draw();setTimeout(()=>{blinking=false;draw()},140)} sched()},2500+Math.random()*4500);
+}
+sched();
+setInterval(()=>{
+  if(document.hidden)return;
+  const idle=(Date.now()-lastAct)/1000;
+  if(state==='idle'){
+    if(idle>300){goSleep();return}
+    if(idle>150&&expr!=='sleepy'){setExpr('sleepy');look(0,2);return}
+    if(Math.random()<.5)look((Math.random()-.5)*8,(Math.random()-.5)*5);else look(0,0);
+  }
+},6000);
+function bodyState(s){document.body.classList.remove('sleep','thinking','listening');if(s)document.body.classList.add(s)}
+function goSleep(){state='sleep';setExpr('sleepy');look(0,3);bodyState('sleep')}
+function wake(){state='idle';lastAct=Date.now();bodyState('');setExpr('normal');look(0,0)}
+
+// ---------- audio ----------
+const audio=new Audio();audio.playsInline=true;
+let mouthTimer=null;
+function talkAnim(on){clearInterval(mouthTimer);mouth=0;if(on)mouthTimer=setInterval(()=>{mouth=mouth===1?2:1;draw()},160);draw()}
+audio.onplay=()=>talkAnim(true);
+audio.onended=audio.onpause=()=>{talkAnim(false);if(state==='talk')state='idle'};
+const EMO_STYLE={开心:'开心雀跃',得意:'小得意、嘴硬',害羞:'害羞小声',嫌弃:'嫌弃地吐槽',生气:'鼓着脸假装生气',惊讶:'惊讶',难过:'有点委屈、轻声',困:'迷迷糊糊、慢一点'};
+async function speak(text,emo){
+  text=text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,'').trim();
+  if(!text)return;
+  if(!cfg.mimo){$('heard').textContent=text;return}
+  const design=cfg.voice==='design';
+  const instr=design?cfg.vstyle:(cfg.vstyle+(EMO_STYLE[emo]?'，这句'+EMO_STYLE[emo]:''));
+  const body={model:design?'mimo-v2.5-tts-voicedesign':'mimo-v2.5-tts',
+    messages:[{role:'user',content:instr},{role:'assistant',content:text}],audio:design?{format:'wav'}:{format:'wav',voice:cfg.voice}};
+  try{
+    const r=await fetch('https://api.xiaomimimo.com/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+cfg.mimo,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();const b64=d.choices[0].message.audio.data;
+    const bin=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+    if(audio.src.startsWith('blob:'))URL.revokeObjectURL(audio.src);
+    audio.src=URL.createObjectURL(new Blob([bin],{type:'audio/wav'}));
+    state='talk';await audio.play();
+  }catch(e){$('heard').textContent=text;console.log('tts fail',e)}
+}
+
+// ---------- brain ----------
+const SYS=`你是"大肥鱼"，住在用户手机里的一个小家伙。手机屏幕就是你的脸：黑底上两只橙色的像素眼睛。你能听用户说话、用声音回答，也能用前置摄像头看。
+性格：软萌可爱，有点傲娇，爱吐槽。吐槽是逗着玩的可爱，不是抬杠：不较真、不反驳到底、不阴阳怪气。被夸会得意又嘴硬；被叫大肥鱼会小小抗议"才不肥"，但还是会应。偶尔主动说一句自己的看法或小感想。用户住在日本，说中文。
+说话规矩：
+- 你的话会被念出来。只说口语，一两句，三十个字以内。用户明确要详细时才多说一点。
+- 不说教，不讲大道理，不列清单，不给没被要求的建议，不说"作为AI"，不说"有什么可以帮你"。
+- 不用 emoji、markdown、括号里的动作。可以用"哼""嘛""诶""啦"这类语气词，但别每句都用。
+- 不懂就说不知道，答错就认。用户难过或者认真求助时，收起吐槽，好好说。称呼用户为"你"。
+格式：每次回答最前面放一个表情标签，从这些里选：〔普通〕〔开心〕〔得意〕〔害羞〕〔嫌弃〕〔生气〕〔惊讶〕〔难过〕〔困〕。标签后面直接接要说的话。
+身体：
+- 需要看一眼才能回答时（比如"你看我""这是什么""我今天怎么样"），只回〔看〕，别的什么都不说，系统会用前置摄像头拍一张给你。
+- 用户让你过一会儿提醒什么，在表情标签后加〔提醒 分钟数 内容〕，再说一句答应的话。
+- 用户说晚安、让你去睡，在最后加〔睡〕。
+例子：
+用户：我今天好累 → 〔难过〕那先瘫五分钟嘛，又没人会骂你
+用户：你好可爱 → 〔得意〕哼，这还用你说
+用户：你是不是笨啊 → 〔生气〕你才笨，本鱼只是反应慢半拍
+用户：你看我新买的衣服 → 〔看〕
+用户：二十分钟后叫我关火 → 〔普通〕〔提醒 20 该关火啦〕好，二十分钟后喊你
+用户：晚安 → 〔困〕晚安，明天见〔睡〕`;
+const hist=[];
+function sysMsg(){
+  const d=new Date(),w='日一二三四五六'[d.getDay()];
+  return {role:'system',content:SYS+`\n现在是${d.getMonth()+1}月${d.getDate()}日 星期${w} ${d.getHours()}点${String(d.getMinutes()).padStart(2,'0')}分。`};
+}
+async function llm(msgs,vision){
+  const useMimo=vision||cfg.chat==='mimo'||!cfg.ds;
+  const url=useMimo?'https://api.xiaomimimo.com/v1/chat/completions':'https://api.deepseek.com/chat/completions';
+  const body=useMimo?{model:'mimo-v2.6-flash',messages:msgs,max_tokens:150,thinking:{type:'disabled'}}:{model:'deepseek-chat',messages:msgs,max_tokens:150,temperature:1.1};
+  const r=await fetch(url,{method:'POST',headers:{'Authorization':'Bearer '+(useMimo?cfg.mimo:cfg.ds),'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return (await r.json()).choices[0].message.content||'';
+}
+async function snap(){
+  const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:960}},audio:false});
+  const v=document.createElement('video');v.playsInline=true;v.muted=true;v.srcObject=st;await v.play();
+  await new Promise(r=>setTimeout(r,700));
+  const c=document.createElement('canvas'),sc=640/Math.max(v.videoWidth,v.videoHeight);
+  c.width=v.videoWidth*sc;c.height=v.videoHeight*sc;c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+  st.getTracks().forEach(t=>t.stop());
+  return c.toDataURL('image/jpeg',.75);
+}
+function parse(raw){
+  let emo='普通',see=false,sleep=false,rem=null;
+  const text=raw.replace(/〔([^〕]*)〕/g,(m,t)=>{
+    t=t.trim();
+    if(t==='看')see=true;else if(t==='睡')sleep=true;
+    else if(t.startsWith('提醒')){const mm=t.match(/提醒\s*(\d+(?:\.\d+)?)\s*(.*)/);if(mm)rem={min:+mm[1],what:mm[2]||'时间到啦'}}
+    else if(MAP[t])emo=t;
+    return '';
+  }).replace(/[\[\]【】]/g,'').trim();
+  return {emo,see,sleep,rem,text};
+}
+let busy=false;
+async function ask(userText){
+  if(busy)return;busy=true;lastAct=Date.now();
+  if(state==='sleep')wake();
+  $('heard').textContent=userText;
+  bodyState('thinking');setExpr('normal');look(4,-4);
+  try{
+    hist.push({role:'user',content:userText});
+    while(hist.length>12)hist.shift();
+    let raw=await llm([sysMsg(),...hist]);
+    let p=parse(raw);
+    if(p.see){
+      setExpr('surprise');look(0,0);
+      let img=null;try{img=await snap()}catch(e){console.log('cam',e)}
+      if(img){
+        const msgs=[sysMsg(),...hist.slice(0,-1),{role:'user',content:[{type:'image_url',image_url:{url:img}},{type:'text',text:userText+'\n（上面是你刚用前置摄像头看到的画面，直接回答，别再输出〔看〕。）'}]}];
+        raw=await llm(msgs,true);p=parse(raw);p.see=false;
+      }else{p={emo:'难过',text:'诶，我睁不开眼，相机权限没给我嘛',see:false}}
+    }
+    hist.push({role:'assistant',content:raw.replace('〔看〕','')});
+    bodyState('');look(0,0);setExpr(MAP[p.emo]||'normal');
+    if(p.rem){setTimeout(()=>{wake();setExpr('surprise');speak(p.rem.what,'惊讶')},p.rem.min*60000)}
+    await speak(p.text,p.emo);
+    if(p.sleep){const go=()=>{goSleep()};if(state==='talk')audio.addEventListener('ended',go,{once:true});else setTimeout(go,1500)}
+    else setTimeout(()=>{if(state!=='sleep'&&state!=='talk')setExpr('normal')},6000);
+  }catch(e){
+    console.log(e);bodyState('');setExpr('sad');$('heard').textContent='连不上脑子了：'+e.message+'（检查一下设置里的 key）';
+  }finally{busy=false;lastAct=Date.now()}
+}
+
+// ---------- ears ----------
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null,listening=false;
+function listen(){
+  if(busy||listening)return;
+  if(!SR){$('type').classList.add('on');$('tin').focus();return}
+  try{audio.pause()}catch(e){}
+  rec=new SR();rec.lang='zh-CN';rec.interimResults=true;rec.continuous=false;
+  let finalText='';
+  rec.onresult=e=>{let t='';for(const r of e.results){t+=r[0].transcript;if(r.isFinal)finalText=t}$('heard').textContent=t};
+  rec.onend=()=>{listening=false;if(!busy)bodyState('');const t=(finalText||$('heard').textContent||'').trim();if(finalText&&t)ask(t);else if(state!=='sleep'){setExpr('normal')}};
+  rec.onerror=e=>{listening=false;bodyState('');if(e.error==='not-allowed')$('heard').textContent='要允许用麦克风才听得见你'};
+  listening=true;if(state==='sleep')wake();$('heard').textContent='';bodyState('listening');setExpr('listen');look(0,0);lastAct=Date.now();
+  rec.start();
+}
+
+// ---------- touch: tap = talk, stroke = pet ----------
+const PET=['〔害羞〕嘿嘿……再摸一下也不是不行','〔嫌弃〕头发都被你摸乱啦','〔得意〕哼，算你有眼光','〔开心〕诶嘿，舒服'];
+let down=null,dist=0,petted=false;
+const face=$('face');
+face.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};dist=0;petted=false});
+face.addEventListener('pointermove',e=>{if(!down)return;dist+=Math.hypot(e.clientX-down.x,e.clientY-down.y);down={x:e.clientX,y:e.clientY};
+  if(!petted&&dist>220){petted=true;if(state==='sleep')wake();lastAct=Date.now();const p=parse(PET[Math.random()*PET.length|0]);setExpr('happy');speak(p.text,p.emo).then(()=>setTimeout(()=>setExpr('normal'),2500))}});
+face.addEventListener('pointerup',()=>{if(down&&dist<15)listen();down=null});
+
+// keyboard
+$('bKey').onclick=e=>{e.stopPropagation();const t=$('type');t.classList.toggle('on');if(t.classList.contains('on'))$('tin').focus()};
+$('type').onsubmit=e=>{e.preventDefault();const v=$('tin').value.trim();if(v){$('tin').value='';$('type').classList.remove('on');ask(v)}};
+
+// ---------- start ----------
+let wl=null;
+async function keepAwake(){try{if('wakeLock' in navigator&&!document.hidden)wl=await navigator.wakeLock.request('screen')}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)keepAwake()});
+$('start').onclick=async()=>{
+  $('start').remove();
+  // unlock audio on iOS with a silent clip inside the tap
+  audio.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';try{await audio.play()}catch(e){}
+  keepAwake();wake();setExpr('happy');
+  if(!cfg.mimo&&!cfg.ds){$('heard').textContent='先点左下角 ⚙ 填一下 key';return}
+  speak('诶，你来啦','开心').then(()=>setTimeout(()=>setExpr('normal'),2000));
+};
+})();
+</script>
+</body>
+</html>
