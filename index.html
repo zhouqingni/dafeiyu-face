@@ -72,7 +72,7 @@ body.listening #mic{opacity:1;animation:pulse 1s infinite}
   <label for="chatP">聊天用哪个</label>
   <select id="chatP"><option value="deepseek">DeepSeek（快）</option><option value="mimo">MiMo</option></select>
   <label for="voice">声音</label>
-  <select id="voice"><option value="冰糖">冰糖（可爱，要等约 3 秒）</option><option value="fast">iPhone 自带（快，立刻说）</option><option value="茉莉">茉莉</option><option value="design">自定义设计（每次可能略有不同）</option></select>
+  <select id="voice"><option value="clone">d. 奶声奶气小女孩（克隆，最可爱）</option><option value="冰糖|夹子音">a. 冰糖 + 夹子音</option><option value="冰糖|撒娇">b. 冰糖 + 撒娇</option><option value="茉莉|夹子音">c. 茉莉 + 夹子音</option><option value="冰糖">冰糖（普通）</option><option value="fast">iPhone 自带（快，立刻说）</option><option value="茉莉">茉莉</option><option value="design">自定义设计（每次可能略有不同）</option></select>
   <label for="hands">听的方式</label>
   <select id="hands"><option value="on">一直听着，开口就录（推荐）</option><option value="off">点一下脸才听</option></select>
   <label for="asr">听写方式</label>
@@ -99,12 +99,12 @@ if(location.hash.startsWith('#setup=')){
 }
 const DEF_STYLE='可爱软糯的小女生声音，奶甜，带点傲娇和小得意，语速快，轻快俏皮，句子之间不要拖';
 const cfg={get mimo(){return LS('mimo')||''},get ds(){return LS('ds')||''},
-  get chat(){return LS('chat')||'deepseek'},get voice(){return LS('voice')||'冰糖'},get vstyle(){return LS('vstyle')||DEF_STYLE},get look(){return LS('look3')||'cube'},get asr(){return LS('asr')||'mimo'},get hands(){return LS('hands')||'on'},get rate(){return +(LS('rate')||1.3)}};
+  get chat(){return LS('chat')||'deepseek'},get voice(){return LS('voice2')||'clone'},get vstyle(){return LS('vstyle')||DEF_STYLE},get look(){return LS('look3')||'cube'},get asr(){return LS('asr')||'mimo'},get hands(){return LS('hands')||'on'},get rate(){return +(LS('rate')||1.3)}};
 const $=id=>document.getElementById(id);
 const panel=$('panel');
 $('bSet').onclick=e=>{e.stopPropagation();$('kMimo').value=cfg.mimo;$('kDs').value=cfg.ds;$('chatP').value=cfg.chat;$('voice').value=cfg.voice;$('vstyle').value=cfg.vstyle;$('look').value=cfg.look;$('asr').value=cfg.asr;$('hands').value=cfg.hands;$('rate').value=String(cfg.rate);panel.classList.add('on')};
 $('close').onclick=()=>panel.classList.remove('on');
-$('save').onclick=()=>{SS('mimo',$('kMimo').value.trim());SS('ds',$('kDs').value.trim());SS('chat',$('chatP').value);SS('voice',$('voice').value);SS('vstyle',$('vstyle').value.trim()||DEF_STYLE);SS('look3',$('look').value);SS('asr',$('asr').value);SS('hands',$('hands').value);SS('rate',$('rate').value);panel.classList.remove('on');layout();if(cfg.hands==='on')startEars()};
+$('save').onclick=()=>{SS('mimo',$('kMimo').value.trim());SS('ds',$('kDs').value.trim());SS('chat',$('chatP').value);SS('voice2',$('voice').value);SS('vstyle',$('vstyle').value.trim()||DEF_STYLE);SS('look3',$('look').value);SS('asr',$('asr').value);SS('hands',$('hands').value);SS('rate',$('rate').value);panel.classList.remove('on');layout();if(cfg.hands==='on')startEars()};
 
 // ---------- pixel face ----------
 const cv=$('cv'),cx=cv.getContext('2d');
@@ -215,7 +215,7 @@ function talkAnim(on){clearInterval(mouthTimer);mouth=0;if(on)mouthTimer=setInte
 audio.onplay=()=>talkAnim(true);
 audio.onended=audio.onpause=()=>{talkAnim(false);if(state==='talk')state='idle';lastSpokeEnd=Date.now()};
 const EMO_STYLE={喜欢:'甜甜的',兴奋:'兴奋',晕:'晕乎乎',眨眼:'俏皮',疑惑:'疑惑',无语:'无奈',哭:'带哭腔',偷笑:'憋着笑',开心:'开心雀跃',得意:'小得意、嘴硬',害羞:'害羞小声',嫌弃:'嫌弃地吐槽',生气:'鼓着脸假装生气',惊讶:'惊讶',难过:'有点委屈、轻声',困:'迷迷糊糊、慢一点'};
-let lastSpokeEnd=0;
+let lastSpokeEnd=0,refVoice=null;
 function speakFast(text){
   return new Promise(res=>{
     try{
@@ -232,10 +232,18 @@ async function speak(text,emo){
   text=text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,'').trim();
   if(!text)return;
   if(cfg.voice==='fast'||!cfg.mimo)return speakFast(text);
-  const design=cfg.voice==='design';
+  const design=cfg.voice==='design', clone=cfg.voice==='clone';
+  const [vname,vtag]=cfg.voice.split('|');
   const instr=design?cfg.vstyle:(cfg.vstyle+(EMO_STYLE[emo]?'，这句'+EMO_STYLE[emo]:''));
-  const body={model:design?'mimo-v2.5-tts-voicedesign':'mimo-v2.5-tts',
-    messages:[{role:'user',content:instr},{role:'assistant',content:text}],audio:design?{format:'wav'}:{format:'wav',voice:cfg.voice}};
+  let body;
+  if(clone){
+    if(!refVoice){const buf=new Uint8Array(await (await fetch('voices/d.wav')).arrayBuffer());refVoice='data:audio/wav;base64,'+b64(buf)}
+    body={model:'mimo-v2.5-tts-voiceclone',messages:[{role:'user',content:instr},{role:'assistant',content:text}],audio:{format:'wav',voice:refVoice}};
+  }else if(design){
+    body={model:'mimo-v2.5-tts-voicedesign',messages:[{role:'user',content:instr},{role:'assistant',content:text}],audio:{format:'wav'}};
+  }else{
+    body={model:'mimo-v2.5-tts',messages:[{role:'user',content:instr},{role:'assistant',content:(vtag?'('+vtag+')':'')+text}],audio:{format:'wav',voice:vname}};
+  }
   try{
     const r=await fetch('https://api.xiaomimimo.com/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+cfg.mimo,'Content-Type':'application/json'},body:JSON.stringify(body)});
     const d=await r.json();const b64s=d.choices[0].message.audio.data;
